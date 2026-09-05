@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Attendance</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#2F6F4F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root{
+    --bg:#F6F4EF;
+    --surface:#FFFFFF;
+    --ink:#202A25;
+    --muted:#6B7269;
+    --border:#E4E0D6;
+    --good:#2F6F4F;
+    --warn:#B8792E;
+    --bad:#B0432F;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-variant-numeric:tabular-nums;
+    padding-bottom:100px;
+  }
+  header{
+    padding:calc(22px + env(safe-area-inset-top)) 18px 16px;
+    border-bottom:1px solid var(--border);
+  }
+  header h1{
+    font-size:20px;
+    margin:0 0 4px;
+    font-weight:600;
+  }
+  .agg-row{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin-top:10px;
+  }
+  .agg-pct{
+    font-size:34px;
+    font-weight:700;
+  }
+  .agg-meta{
+    font-size:13px;
+    color:var(--muted);
+    text-align:right;
+    line-height:1.4;
+  }
+  .agg-meta button{
+    background:none;border:none;color:var(--muted);
+    font-size:13px;text-decoration:underline;padding:0;cursor:pointer;
+  }
+  .threshold-edit{
+    display:none;
+    margin-top:10px;
+    font-size:13px;
+    color:var(--muted);
+  }
+  .threshold-edit.open{display:flex;align-items:center;gap:8px;}
+  .threshold-edit input{
+    width:52px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:13px;
+  }
+  main{padding:6px 18px 0;}
+  .subject{
+    border-bottom:1px solid var(--border);
+    padding:16px 0;
+  }
+  .subject-top{
+    display:flex;justify-content:space-between;align-items:flex-start;
+  }
+  .subject-name{
+    font-size:16px;font-weight:600;
+  }
+  .subject-meta{
+    font-size:12.5px;color:var(--muted);margin-top:2px;
+  }
+  .subject-pct{
+    font-size:22px;font-weight:700;
+  }
+  .bar-track{
+    height:5px;background:var(--border);border-radius:3px;margin:10px 0 12px;overflow:hidden;
+  }
+  .bar-fill{
+    height:100%;border-radius:3px;
+  }
+  .actions{
+    display:flex;gap:8px;
+  }
+  .actions button{
+    flex:1;
+    padding:9px 0;
+    border-radius:6px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .btn-present{color:var(--good);}
+  .btn-absent{color:var(--bad);}
+  .edit-link{
+    display:block;
+    text-align:right;
+    font-size:12.5px;
+    color:var(--muted);
+    margin-top:8px;
+    text-decoration:underline;
+    cursor:pointer;
+  }
+  .edit-panel{
+    display:none;
+    margin-top:10px;
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px;
+  }
+  .edit-panel.open{display:block;}
+  .edit-panel .row{
+    display:flex;gap:8px;margin-bottom:8px;
+  }
+  .edit-panel label{
+    font-size:12px;color:var(--muted);display:block;margin-bottom:3px;
+  }
+  .edit-panel input{
+    width:100%;padding:7px;border:1px solid var(--border);border-radius:5px;font-size:14px;
+  }
+  .edit-panel .field{flex:1;}
+  .edit-panel .row2{display:flex;gap:8px;}
+  .edit-panel .row2 button{
+    flex:1;padding:8px 0;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);
+  }
+  .save-btn{background:var(--ink);color:#fff;}
+  .delete-btn{background:var(--surface);color:var(--bad);}
+  .empty{
+    padding:40px 18px;color:var(--muted);font-size:14px;line-height:1.6;
+  }
+  .add-wrap{
+    padding:16px 18px calc(30px + env(safe-area-inset-bottom));
+  }
+  .add-toggle{
+    width:100%;padding:12px 0;border-radius:8px;border:1px dashed var(--border);
+    background:none;color:var(--muted);font-size:14px;cursor:pointer;
+  }
+  .add-form{
+    display:none;
+    margin-top:10px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:14px;
+  }
+  .add-form.open{display:block;}
+  .add-form label{font-size:12px;color:var(--muted);display:block;margin-bottom:3px;}
+  .add-form input{
+    width:100%;padding:8px;border:1px solid var(--border);border-radius:5px;font-size:14px;margin-bottom:10px;
+  }
+  .add-form button{
+    width:100%;padding:10px 0;border-radius:6px;border:none;background:var(--ink);color:#fff;font-size:14px;font-weight:600;cursor:pointer;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Attendance</h1>
+  <div class="agg-row">
+    <div class="agg-pct" id="aggPct">–</div>
+    <div class="agg-meta">
+      <div id="aggMeta">no classes logged yet</div>
+      <button id="thresholdBtn">change 75% target</button>
+    </div>
+  </div>
+  <div class="threshold-edit" id="thresholdEdit">
+    <span>target %</span>
+    <input type="number" id="thresholdInput" min="1" max="100">
+    <button id="thresholdSave" style="border:1px solid var(--border);background:var(--surface);border-radius:5px;padding:4px 10px;cursor:pointer;">save</button>
+  </div>
+</header>
+
+<main id="list"></main>
+
+<div class="add-wrap">
+  <button class="add-toggle" id="addToggle">+ add subject</button>
+  <div class="add-form" id="addForm">
+    <label>Subject name</label>
+    <input type="text" id="newName" placeholder="e.g. Pathology">
+    <label>Total classes this trimester</label>
+    <input type="number" id="newTotal" placeholder="e.g. 40" min="1">
+    <button id="newSave">Add subject</button>
+  </div>
+</div>
+
+<script>
+const KEY = 'attendance-app-data';
+let data = { subjects: [], threshold: 75 };
+
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw) data = JSON.parse(raw);
+  }catch(e){ /* no data yet */ }
+  render();
+}
+
+function save(){
+  try{
+    localStorage.setItem(KEY, JSON.stringify(data));
+  }catch(e){
+    console.error('save failed', e);
+  }
+}
+
+function pctColor(pct, threshold){
+  if(pct >= threshold) return 'var(--good)';
+  if(pct >= threshold - 10) return 'var(--warn)';
+  return 'var(--bad)';
+}
+
+function render(){
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+
+  if(data.subjects.length === 0){
+    list.innerHTML = '<div class="empty">No subjects yet. Add one below — give it a name and the total number of classes fixed for this trimester, then start logging each day.</div>';
+  }
+
+  let totalAttended = 0, totalHeld = 0;
+
+  data.subjects.forEach(s => {
+    totalAttended += s.attended;
+    totalHeld += s.attended + s.absent;
+
+    const held = s.attended + s.absent;
+    const pct = held > 0 ? Math.round((s.attended/held)*100) : 0;
+    const color = pctColor(pct, data.threshold);
+    const remaining = Math.max(s.total - held, 0);
+
+    const needed = classesNeededFor75(s.attended, held, s.total, data.threshold);
+
+    const div = document.createElement('div');
+    div.className = 'subject';
+    div.innerHTML = `
+      <div class="subject-top">
+        <div>
+          <div class="subject-name">${escapeHtml(s.name)}</div>
+          <div class="subject-meta">${held} of ${s.total} classes recorded${remaining>0 ? ' · ' + remaining + ' left' : ''}</div>
+        </div>
+        <div class="subject-pct" style="color:${color}">${held>0 ? pct+'%' : '–'}</div>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+      ${held>0 ? `<div class="subject-meta" style="margin-bottom:10px;">${needed}</div>` : ''}
+      <div class="actions">
+        <button class="btn-present" data-id="${s.id}" data-action="present">Mark present</button>
+        <button class="btn-absent" data-id="${s.id}" data-action="absent">Mark absent</button>
+      </div>
+      <div class="edit-link" data-id="${s.id}" data-toggle="edit">edit / fix a misclick</div>
+      <div class="edit-panel" id="edit-${s.id}">
+        <div class="row">
+          <div class="field"><label>Present</label><input type="number" min="0" value="${s.attended}" id="edit-att-${s.id}"></div>
+          <div class="field"><label>Absent</label><input type="number" min="0" value="${s.absent}" id="edit-abs-${s.id}"></div>
+          <div class="field"><label>Total</label><input type="number" min="1" value="${s.total}" id="edit-tot-${s.id}"></div>
+        </div>
+        <div class="row2">
+          <button class="save-btn" data-id="${s.id}" data-action="save-edit">Save</button>
+          <button class="delete-btn" data-id="${s.id}" data-action="delete">Delete subject</button>
+        </div>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+
+  const aggPctEl = document.getElementById('aggPct');
+  const aggMetaEl = document.getElementById('aggMeta');
+  if(totalHeld > 0){
+    const overallPct = Math.round((totalAttended/totalHeld)*100);
+    aggPctEl.textContent = overallPct + '%';
+    aggPctEl.style.color = pctColor(overallPct, data.threshold);
+    aggMetaEl.textContent = totalHeld + ' classes recorded across ' + data.subjects.length + ' subject' + (data.subjects.length===1?'':'s');
+  } else {
+    aggPctEl.textContent = '–';
+    aggPctEl.style.color = 'var(--ink)';
+    aggMetaEl.textContent = 'no classes logged yet';
+  }
+  document.getElementById('thresholdBtn').textContent = 'change ' + data.threshold + '% target';
+
+  attachHandlers();
+}
+
+function classesNeededFor75(attended, held, total, threshold){
+  const remaining = total - held;
+  if(remaining <= 0){
+    const pct = held>0 ? (attended/held)*100 : 0;
+    return pct >= threshold ? 'trimester done, target met' : 'trimester done, target missed';
+  }
+  const need = Math.ceil((threshold/100)*total - attended);
+  if(need <= 0) return `can miss all ${remaining} remaining and stay at ${threshold}%+`;
+  if(need > remaining) return `can't reach ${threshold}% even attending all ${remaining} left`;
+  return `need ${need} of ${remaining} remaining to hit ${threshold}%`;
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function attachHandlers(){
+  document.querySelectorAll('[data-action="present"]').forEach(b=>{
+    b.onclick = ()=> logClass(b.dataset.id, true);
+  });
+  document.querySelectorAll('[data-action="absent"]').forEach(b=>{
+    b.onclick = ()=> logClass(b.dataset.id, false);
+  });
+  document.querySelectorAll('[data-toggle="edit"]').forEach(b=>{
+    b.onclick = ()=>{
+      const panel = document.getElementById('edit-'+b.dataset.id);
+      panel.classList.toggle('open');
+    };
+  });
+  document.querySelectorAll('[data-action="save-edit"]').forEach(b=>{
+    b.onclick = ()=> saveEdit(b.dataset.id);
+  });
+  document.querySelectorAll('[data-action="delete"]').forEach(b=>{
+    b.onclick = ()=> deleteSubject(b.dataset.id);
+  });
+}
+
+function logClass(id, present){
+  const s = data.subjects.find(x=>x.id===id);
+  if(!s) return;
+  if(present) s.attended++;
+  else s.absent++;
+  save();
+  render();
+}
+
+function saveEdit(id){
+  const s = data.subjects.find(x=>x.id===id);
+  if(!s) return;
+  const att = parseInt(document.getElementById('edit-att-'+id).value) || 0;
+  const abs = parseInt(document.getElementById('edit-abs-'+id).value) || 0;
+  const tot = parseInt(document.getElementById('edit-tot-'+id).value) || 1;
+  s.attended = att; s.absent = abs; s.total = tot;
+  save();
+  render();
+}
+
+function deleteSubject(id){
+  data.subjects = data.subjects.filter(x=>x.id!==id);
+  save();
+  render();
+}
+
+document.getElementById('addToggle').onclick = ()=>{
+  document.getElementById('addForm').classList.toggle('open');
+};
+
+document.getElementById('newSave').onclick = ()=>{
+  const name = document.getElementById('newName').value.trim();
+  const total = parseInt(document.getElementById('newTotal').value);
+  if(!name || !total || total < 1) return;
+  data.subjects.push({
+    id: 'sub_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+    name, total, attended:0, absent:0
+  });
+  document.getElementById('newName').value = '';
+  document.getElementById('newTotal').value = '';
+  document.getElementById('addForm').classList.remove('open');
+  save();
+  render();
+};
+
+document.getElementById('thresholdBtn').onclick = ()=>{
+  const el = document.getElementById('thresholdEdit');
+  document.getElementById('thresholdInput').value = data.threshold;
+  el.classList.toggle('open');
+};
+document.getElementById('thresholdSave').onclick = ()=>{
+  const v = parseInt(document.getElementById('thresholdInput').value);
+  if(v>0 && v<=100) data.threshold = v;
+  document.getElementById('thresholdEdit').classList.remove('open');
+  save();
+  render();
+};
+
+load();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(e=>console.error('SW failed', e));
+  });
+}
+</script>
+</body>
+</html>
