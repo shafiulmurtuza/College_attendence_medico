@@ -128,6 +128,11 @@ main{padding:14px 14px 0;}
 .part-name{font-size:14.5px;font-weight:500;display:flex;align-items:center;}
 .part-name .icon{stroke:var(--gold);}
 .part-meta{font-size:11.5px;color:var(--muted);margin-top:2px;}
+.part-chip{
+  font-size:11px;font-weight:600;padding:3px 8px;border-radius:14px;white-space:nowrap;
+  display:inline-flex;align-items:center;gap:3px;margin-top:6px;
+}
+.part-chip .icon{width:11px;height:11px;margin-right:2px;}
 .part-actions{display:flex;gap:6px;}
 .icon-btn{
   width:34px;height:34px;border-radius:8px;border:1px solid var(--border);
@@ -281,7 +286,8 @@ main{padding:14px 14px 0;}
     <div class="parts-draft" id="partsDraft"></div>
     <div class="add-part-inline">
       <input type="text" id="draftPartName" placeholder="Part name e.g. Theory">
-      <input type="number" id="draftPartTotal" placeholder="Total" min="1" style="max-width:80px;">
+      <input type="number" id="draftPartTotal" placeholder="Total" min="1" style="max-width:70px;">
+      <input type="number" id="draftPartTarget" placeholder="Target%" min="1" max="100" style="max-width:75px;">
       <button id="draftPartAdd" type="button">+</button>
     </div>
     <button class="primary" id="newSave">Create subject</button>
@@ -291,7 +297,14 @@ main{padding:14px 14px 0;}
 <div class="backup-section">
   <button class="backup-toggle" id="backupToggle">Backup / restore data</button>
   <div class="backup-panel" id="backupPanel">
-    <label>Your data (copy this somewhere safe)</label>
+    <label>Save to your phone (then share to Google Drive, email, etc.)</label>
+    <div class="row2" style="margin-bottom:16px;">
+      <button id="backupDownload">Download backup file</button>
+      <button id="backupImportBtn">Import from file</button>
+    </div>
+    <input type="file" id="backupFileInput" accept="application/json,.json" style="display:none;">
+    <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
+    <label>Or copy/paste as text</label>
     <textarea id="backupOut" readonly></textarea>
     <div class="row2" style="margin-bottom:14px;">
       <button id="backupCopy">Copy</button>
@@ -304,6 +317,7 @@ main{padding:14px 14px 0;}
     </div>
   </div>
 </div>
+
 
 <div class="undo-bar" id="undoBar">
   <span id="undoText">Marked</span>
@@ -358,12 +372,16 @@ function pctColor(pct, threshold){
   return 'var(--bad)';
 }
 
-function aggregateSubject(s){
-  let total=0, attended=0, absent=0;
-  s.parts.forEach(p=>{ total+=p.total; attended+=p.attended; absent+=p.absent; });
+function aggFromCounts(total, attended, absent){
   const held = attended+absent;
   const remaining = Math.max(total-held,0);
   return {total, attended, absent, held, remaining};
+}
+
+function aggregateSubject(s){
+  let total=0, attended=0, absent=0;
+  s.parts.forEach(p=>{ total+=p.total; attended+=p.attended; absent+=p.absent; });
+  return aggFromCounts(total, attended, absent);
 }
 
 function bunkInfo(agg, target){
@@ -433,14 +451,17 @@ function render(){
     const info = bunkInfo(agg, s.target);
 
     const partsHtml = s.parts.map(p=>{
-      const pheld = p.attended+p.absent;
-      const premain = Math.max(p.total-pheld,0);
+      const pTarget = p.target || s.target;
+      const pAgg = aggFromCounts(p.total, p.attended, p.absent);
+      const premain = pAgg.remaining;
+      const pInfo = bunkInfo(pAgg, pTarget);
       return `
       <div class="part">
         <div class="part-top">
           <div>
             <div class="part-name">${partIcon(p.name)}${escapeHtml(p.name)}</div>
-            <div class="part-meta">Attended ${p.attended} · Bunked ${p.absent} · ${premain} left of ${p.total}</div>
+            <div class="part-meta">Attended ${p.attended} · Bunked ${p.absent} · ${premain} left of ${p.total} · target ${pTarget}%</div>
+            ${chipHtml(pInfo).replace('chip ', 'chip part-chip ')}
           </div>
           <div class="part-actions">
             <button class="icon-btn icon-btn-present" data-sid="${s.id}" data-pid="${p.id}" data-act="present">${ICONS.check}</button>
@@ -456,6 +477,7 @@ function render(){
             <div class="field"><label>Present</label><input type="number" min="0" value="${p.attended}" id="e-att-${p.id}"></div>
             <div class="field"><label>Bunked</label><input type="number" min="0" value="${p.absent}" id="e-abs-${p.id}"></div>
             <div class="field"><label>Total</label><input type="number" min="1" value="${p.total}" id="e-tot-${p.id}"></div>
+            <div class="field"><label>Target %</label><input type="number" min="1" max="100" value="${pTarget}" id="e-tgt-${p.id}"></div>
           </div>
           <div class="row2"><button class="save-btn" data-save-part="${s.id}|${p.id}">Save</button></div>
         </div>
@@ -486,7 +508,8 @@ function render(){
       <div class="add-part-form" id="add-part-${s.id}">
         <div class="row" style="display:flex;gap:8px;margin-bottom:8px;">
           <input type="text" id="np-name-${s.id}" placeholder="Part name" style="flex:1;padding:7px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--ink);">
-          <input type="number" id="np-total-${s.id}" placeholder="Total" min="1" style="width:70px;padding:7px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--ink);">
+          <input type="number" id="np-total-${s.id}" placeholder="Total" min="1" style="width:60px;padding:7px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--ink);">
+          <input type="number" id="np-target-${s.id}" placeholder="Target%" min="1" max="100" value="${s.target}" style="width:65px;padding:7px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--ink);">
         </div>
         <button data-add-part="${s.id}">Add part</button>
       </div>
@@ -567,11 +590,12 @@ function attachHandlers(){
   document.querySelectorAll('[data-add-part]').forEach(b=>{
     b.onclick = ()=>{
       const sid = b.dataset.addPart;
+      const s = data.subjects.find(x=>x.id===sid);
       const name = document.getElementById('np-name-'+sid).value.trim();
       const total = parseInt(document.getElementById('np-total-'+sid).value);
+      const target = parseInt(document.getElementById('np-target-'+sid).value) || s.target;
       if(!name || !total || total<1) return;
-      const s = data.subjects.find(x=>x.id===sid);
-      s.parts.push({id:'p_'+Date.now()+'_'+Math.floor(Math.random()*1000), name, total, attended:0, absent:0});
+      s.parts.push({id:'p_'+Date.now()+'_'+Math.floor(Math.random()*1000), name, total, target, attended:0, absent:0});
       save(); render();
     };
   });
@@ -622,6 +646,7 @@ function saveEditPart(sid,pid){
   p.attended = parseInt(document.getElementById('e-att-'+pid).value)||0;
   p.absent = parseInt(document.getElementById('e-abs-'+pid).value)||0;
   p.total = parseInt(document.getElementById('e-tot-'+pid).value)||1;
+  p.target = parseInt(document.getElementById('e-tgt-'+pid).value)||75;
   save(); render();
 }
 function deletePart(sid,pid){
@@ -637,7 +662,7 @@ document.getElementById('addToggle').onclick = ()=>{
 };
 function renderDraftParts(){
   const el = document.getElementById('partsDraft');
-  el.innerHTML = draftParts.map((p,i)=>`<div class="parts-draft-row"><span>${escapeHtml(p.name)} — ${p.total} classes</span><button data-rm-draft="${i}">&times;</button></div>`).join('');
+  el.innerHTML = draftParts.map((p,i)=>`<div class="parts-draft-row"><span>${escapeHtml(p.name)} — ${p.total} classes · target ${p.target}%</span><button data-rm-draft="${i}">&times;</button></div>`).join('');
   el.querySelectorAll('[data-rm-draft]').forEach(b=>{
     b.onclick = ()=>{ draftParts.splice(parseInt(b.dataset.rmDraft),1); renderDraftParts(); };
   });
@@ -645,10 +670,13 @@ function renderDraftParts(){
 document.getElementById('draftPartAdd').onclick = ()=>{
   const name = document.getElementById('draftPartName').value.trim();
   const total = parseInt(document.getElementById('draftPartTotal').value);
+  const overallTarget = parseInt(document.getElementById('newTarget').value) || 75;
+  const target = parseInt(document.getElementById('draftPartTarget').value) || overallTarget;
   if(!name || !total || total<1) return;
-  draftParts.push({name,total});
+  draftParts.push({name,total,target});
   document.getElementById('draftPartName').value='';
   document.getElementById('draftPartTotal').value='';
+  document.getElementById('draftPartTarget').value='';
   renderDraftParts();
 };
 document.getElementById('newSave').onclick = ()=>{
@@ -659,7 +687,7 @@ document.getElementById('newSave').onclick = ()=>{
   data.subjects.push({
     id:'sub_'+Date.now()+'_'+Math.floor(Math.random()*1000),
     name, target,
-    parts: draftParts.map(p=>({id:'p_'+Date.now()+'_'+Math.floor(Math.random()*1000)+'_'+Math.random().toString(36).slice(2,6), name:p.name, total:p.total, attended:0, absent:0}))
+    parts: draftParts.map(p=>({id:'p_'+Date.now()+'_'+Math.floor(Math.random()*1000)+'_'+Math.random().toString(36).slice(2,6), name:p.name, total:p.total, target:p.target, attended:0, absent:0}))
   });
   draftParts = [];
   renderDraftParts();
@@ -686,7 +714,36 @@ document.getElementById('backupCopy').onclick = ()=>{
   alert('Copied to clipboard');
 };
 document.getElementById('backupRestore').onclick = ()=>{
-  const raw = document.getElementById('backupIn').value.trim();
+  restoreFromText(document.getElementById('backupIn').value.trim());
+};
+
+document.getElementById('backupDownload').onclick = ()=>{
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = 'attendance-backup-' + stamp + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+document.getElementById('backupImportBtn').onclick = ()=>{
+  document.getElementById('backupFileInput').click();
+};
+document.getElementById('backupFileInput').onchange = (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=> restoreFromText(reader.result);
+  reader.onerror = ()=> alert('Could not read that file');
+  reader.readAsText(file);
+  e.target.value = '';
+};
+
+function restoreFromText(raw){
   if(!raw) return;
   try{
     const parsed = JSON.parse(raw);
@@ -698,9 +755,9 @@ document.getElementById('backupRestore').onclick = ()=>{
       alert('Restored');
     }
   }catch(e){
-    alert('That backup text looks invalid');
+    alert('That backup file looks invalid');
   }
-};
+}
 
 load();
 
